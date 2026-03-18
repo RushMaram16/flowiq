@@ -4,7 +4,7 @@ Request/response models for all endpoints.
 Mirrors the architecture doc's API contract exactly.
 """
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from typing import List, Optional, Dict, Any
 from datetime import date
 
@@ -22,6 +22,7 @@ class OptimizeRequest:
     attraction_ids: List[str]           # List of UUID strings
     preference_mode: str = "balanced"   # comfort | fastest | balanced
     start_hour: int = 9                 # Hour to start (0-23)
+    travel_mode: str = "driving"        # driving | walking
 
     def validate(self) -> Optional[str]:
         """Returns error message if invalid, None if valid."""
@@ -35,6 +36,8 @@ class OptimizeRequest:
             return "Maximum 7 attractions per itinerary"
         if self.preference_mode not in ("comfort", "fastest", "balanced"):
             return "preference_mode must be comfort, fastest, or balanced"
+        if self.travel_mode not in ("driving", "walking"):
+            return "travel_mode must be driving or walking"
         if not (0 <= self.start_hour <= 23):
             return "start_hour must be between 0 and 23"
         try:

@@ -15,9 +15,10 @@ from engine.impact_score import (
 from engine.travel_estimator import estimate_travel_time, estimate_travel_matrix
 from engine.data_loader import get_data_store, haversine_km
 import sys
+import os
 import json
 from datetime import datetime
-sys.path.insert(0, "engine/phase1_data.xlsx")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def separator(title):
@@ -377,12 +378,13 @@ def generate_sample_output():
 
     output = result.to_dict()
 
-    # Save sample output
-    with open("/home/claude/smarttrip-ai/data/sample_optimization_output.json", "w") as f:
+    # Save sample output next to this test file
+    output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sample_output.json")
+    with open(output_path, "w") as f:
         json.dump(output, f, indent=2, default=str)
 
     print(json.dumps(output, indent=2, default=str))
-    print(f"\n  Saved to data/sample_optimization_output.json")
+    print(f"\n  Saved to {output_path}")
 
 
 # ═══════════════════════════════════════════════════════════

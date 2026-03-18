@@ -19,10 +19,10 @@ from engine.data_loader import get_data_store
 
 WEIGHT_PROFILES = {
     "balanced": {
-        "traffic":     0.40,
-        "heat":        0.20,
+        "traffic":     0.50,   # increased from 0.40 — traffic is the primary reorder driver
+        "heat":        0.15,   # reduced from 0.20
         "crowd":       0.20,
-        "volatility":  0.20,
+        "volatility":  0.15,   # reduced from 0.20
     },
     "comfort": {
         "traffic":     0.25,
@@ -92,12 +92,19 @@ def compute_traffic_volatility(traffic_index: float, hour: int) -> float:
 def compute_heat_impact(
     city: str, month: int, hour: int,
     attraction: dict,
+    weather: dict = None,
 ) -> float:
     """
     Compute heat discomfort impact considering whether attraction is heat-sensitive.
+
+    Args:
+        weather: Pre-fetched weather dict (avoids double lookup). If None, fetches from store.
+                 Accepts both static (temperature, heat_discomfort) and live
+                 (may include uv_index, source) formats.
     """
-    store = get_data_store()
-    weather = store.get_weather(city, month, hour)
+    if weather is None:
+        store = get_data_store()
+        weather = store.get_weather(city, month, hour)
     heat_discomfort = weather["heat_discomfort"]
 
     is_heat_sensitive = attraction.get("heat_sensitive", False)

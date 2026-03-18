@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartTrip AI &mdash; Spain</title>
+
+  <!-- Tailwind CSS (CDN play mode) -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { red: '#C0392B', amber: '#E67E22', navy: '#2C3E50', teal: '#1ABC9C' }
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    /* Ensure Leaflet map containers always have height */
+    #planner-map  { height: 220px; border-radius: 12px; overflow: hidden; }
+    #results-map  { height: 280px; }
+    @media (min-width: 640px) { #results-map { height: 400px; } }
+    #attr-grid-wrap { max-height: 70vh; overflow-y: auto; padding-right: 4px; }
+
+    /* Smooth view transitions */
+    [data-view] { transition: opacity 0.2s; }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #C0392B; border-radius: 3px; }
+
+    /* Attraction card hover */
+    .attr-card { cursor: pointer; transition: all 0.18s ease; }
+    .attr-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .attr-card.selected { ring: 2px; border: 2px solid #C0392B; background: #fef2f2; }
+
+    /* City card */
+    .city-card { transition: all 0.2s; cursor: pointer; }
+    .city-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.2); }
+
+    /* Impact bar animation */
+    .impact-bar { transition: width 0.6s ease; }
+
+    /* Pill toggle */
+    .mode-pill { cursor: pointer; transition: all 0.15s; }
+    .mode-pill.active { background: #C0392B; color: white; }
+    .travel-pill { cursor: pointer; transition: all 0.15s; }
+    .travel-pill.active { background: #2C3E50; color: white; }
+    /* Category filter */
+    .cat-pill { cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .cat-pill.active { background: #C0392B; color: white; border-color: #C0392B; }
+    /* Mobile floating optimize button */
+    #mobile-optimize-bar { display: none; }
+    @media (max-width: 1024px) { #mobile-optimize-bar { display: flex; } }
+
+    /* Weather dot */
+    .heat-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+    /* Number badge on timeline */
+    .stop-badge {
+      min-width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px; color: white;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 font-sans text-gray-800 antialiased">
+
+<!-- ═══════════════════════════════════════════════════════
+     LOADING OVERLAY
+════════════════════════════════════════════════════════ -->
+<div id="loading-overlay" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-2xl p-10 flex flex-col items-center gap-5 shadow-2xl">
+    <div class="animate-spin h-12 w-12 border-4 border-red-600 border-t-transparent rounded-full"></div>
+    <p class="text-gray-700 font-semibold text-lg">Optimising your route&hellip;</p>
+    <p class="text-sm text-gray-400">Evaluating all permutations</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     TOAST
+════════════════════════════════════════════════════════ -->
+<div id="toast" class="hidden fixed bottom-6 right-6 z-50 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-xl text-sm max-w-xs"></div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     VIEW: LANDING
+════════════════════════════════════════════════════════ -->
+<section data-view="landing" class="min-h-screen">
+
+  <!-- Hero -->
+  <div class="relative flex flex-col items-center justify-center text-center text-white overflow-hidden"
+       style="min-height:60vh; background: linear-gradient(135deg,#C0392B 0%,#E67E22 60%,#2C3E50 100%);">
+    <div class="absolute inset-0" style="background:rgba(0,0,0,0.18);"></div>
+    <div class="relative z-10 px-6 py-16 max-w-3xl mx-auto">
+      <div class="text-6xl mb-4">&#9992;&#65039;</div>
+      <h1 class="text-5xl md:text-6xl font-extrabold mb-4 tracking-tight drop-shadow-lg">SmartTrip <span class="text-yellow-300">AI</span></h1>
+      <p class="text-xl md:text-2xl font-light mb-2 opacity-90">Intelligent itineraries for Spain</p>
+      <p class="text-base opacity-75 max-w-xl mx-auto">We evaluate every possible order of your chosen attractions, then pick the route with the least traffic, heat, and crowds &mdash; so you spend your time exploring, not waiting.</p>
+    </div>
+  </div>
+
+  <!-- City cards -->
+  <div class="max-w-5xl mx-auto px-6 py-14">
+    <h2 class="text-center text-2xl font-bold text-gray-700 mb-2">Choose your city</h2>
+    <p class="text-center text-gray-500 mb-10">We&rsquo;ll load all available attractions and optimise a custom day plan for you.</p>
+
+    <div id="city-grid" class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <!-- Injected dynamically from /api/cities -->
+      <div class="col-span-3 flex justify-center py-8">
+        <div class="animate-spin h-8 w-8 border-4 border-red-500 border-t-transparent rounded-full"></div>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="mt-16 grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
+      <div class="p-5">
+        <div class="text-3xl mb-2">&#128205;</div>
+        <p class="font-semibold">Pick your city</p>
+        <p class="text-sm text-gray-500 mt-1">10+ Spanish cities</p>
+      </div>
+      <div class="p-5">
+        <div class="text-3xl mb-2">&#9989;</div>
+        <p class="font-semibold">Select attractions</p>
+        <p class="text-sm text-gray-500 mt-1">Choose 3 &ndash; 5 places to visit</p>
+      </div>
+      <div class="p-5">
+        <div class="text-3xl mb-2">&#129302;</div>
+        <p class="font-semibold">AI optimises</p>
+        <p class="text-sm text-gray-500 mt-1">We test every order &amp; pick the best</p>
+      </div>
+      <div class="p-5">
+        <div class="text-3xl mb-2">&#128506;</div>
+        <p class="font-semibold">Get your plan</p>
+        <p class="text-sm text-gray-500 mt-1">Map, timeline &amp; stress scores</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     VIEW: PLANNER
+════════════════════════════════════════════════════════ -->
+<section data-view="planner" class="hidden min-h-screen bg-gray-50">
+
+  <!-- Top nav -->
+  <div class="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <button onclick="navigate('landing')"
+              class="flex items-center gap-2 text-gray-500 hover:text-gray-800 text-sm font-medium">
+        &larr; Back
+      </button>
+      <h2 id="planner-title" class="font-bold text-lg text-gray-800">Choose Attractions</h2>
+      <div id="sel-counter" class="text-sm font-semibold px-3 py-1 rounded-full bg-red-50 text-red-700">0 / 5 selected</div>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8">
+
+    <!-- LEFT: Attraction grid -->
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-gray-500 text-sm">Select 3&ndash;5 attractions. Click a card to toggle it.</p>
+        <span id="attr-count" class="text-xs text-gray-400"></span>
+      </div>
+      <!-- Category filter pills -->
+      <div id="category-filter" class="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+        <!-- injected by JS -->
+      </div>
+      <div id="attr-grid-wrap">
+        <div id="attr-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+          <!-- injected by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Sidebar -->
+    <div class="lg:w-80 flex-shrink-0">
+      <div class="sticky top-20 space-y-5">
+
+        <!-- Selected list -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h3 class="font-semibold text-gray-700 mb-3">Your selections</h3>
+          <div id="selected-list" class="space-y-2 text-sm text-gray-600 min-h-10">
+            <p class="text-gray-400 italic">None yet</p>
+          </div>
+        </div>
+
+        <!-- Date & time -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Date</label>
+            <input type="date" id="trip-date"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Start time</label>
+            <select id="start-hour"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400">
+              <option value="7">7:00 AM</option>
+              <option value="8">8:00 AM</option>
+              <option value="9" selected>9:00 AM</option>
+              <option value="10">10:00 AM</option>
+              <option value="11">11:00 AM</option>
+              <option value="12">12:00 PM</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Optimise for</label>
+            <div class="flex rounded-xl overflow-hidden border border-gray-200 text-sm font-medium">
+              <div class="mode-pill active flex-1 text-center py-2 px-1" data-mode="comfort"     onclick="setMode('comfort')">Comfort</div>
+              <div class="mode-pill flex-1 text-center py-2 px-1 border-l border-r border-gray-200" data-mode="balanced" onclick="setMode('balanced')">Balanced</div>
+              <div class="mode-pill flex-1 text-center py-2 px-1" data-mode="fastest"    onclick="setMode('fastest')">Fastest</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mini map -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+          <p class="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Selected on map</p>
+          <div id="planner-map"></div>
+        </div>
+
+        <!-- Travel mode -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h3 class="block text-sm font-semibold text-gray-700 mb-2">Travel mode</h3>
+          <div class="flex rounded-xl overflow-hidden border border-gray-200 text-sm font-medium">
+            <div class="travel-pill active flex-1 text-center py-2" data-travel="driving"
+                 onclick="setTravelMode('driving')">&#128663; Driving</div>
+            <div class="travel-pill flex-1 text-center py-2 border-l border-gray-200"
+                 data-travel="walking" onclick="setTravelMode('walking')">&#128694; Walking</div>
+          </div>
+        </div>
+
+        <!-- Weather preview (shown after date is picked) -->
+        <div id="weather-preview-card" class="hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h3 class="text-sm font-semibold text-gray-700 mb-3">&#127774; Day forecast</h3>
+          <div id="weather-preview-strip" class="flex gap-1 overflow-x-auto pb-1"></div>
+          <div id="heat-warning" class="hidden mt-2 text-xs text-orange-600 font-semibold bg-orange-50 rounded-lg px-3 py-2">
+            &#9888; High heat forecast afternoon — consider morning timing
+          </div>
+        </div>
+
+        <!-- Optimise button (hidden on mobile — shown in floating bar instead) -->
+        <button id="optimize-btn" onclick="runOptimize()"
+                class="hidden lg:block w-full py-4 rounded-2xl text-white font-bold text-base shadow-lg
+                       disabled:opacity-40 disabled:cursor-not-allowed"
+                style="background:linear-gradient(135deg,#C0392B,#E67E22);" disabled>
+          &#9889; Optimise My Route
+        </button>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Mobile floating optimize bar -->
+  <div id="mobile-optimize-bar"
+       class="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-3 items-center gap-3 shadow-xl">
+    <div class="flex-1 text-sm text-gray-600">
+      <span id="mobile-sel-count" class="font-semibold">0</span> attractions selected
+    </div>
+    <button onclick="runOptimize()" id="mobile-optimize-btn"
+            class="px-6 py-3 rounded-xl text-white font-bold text-sm shadow disabled:opacity-40 disabled:cursor-not-allowed"
+            style="background:linear-gradient(135deg,#C0392B,#E67E22);" disabled>
+      &#9889; Optimise
+    </button>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     VIEW: RESULTS
+════════════════════════════════════════════════════════ -->
+<section data-view="results" class="hidden min-h-screen bg-gray-50">
+
+  <!-- Top bar -->
+  <div class="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+      <button onclick="navigate('planner')"
+              class="flex items-center gap-2 text-gray-500 hover:text-gray-800 text-sm font-medium">
+        &larr; Back to Planner
+      </button>
+      <div id="results-title" class="font-bold text-gray-800 text-base"></div>
+      <div id="results-stats" class="text-xs text-gray-400"></div>
+    </div>
+  </div>
+
+  <div class="max-w-5xl mx-auto px-4 py-8 space-y-8">
+
+    <!-- Map -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-5 pt-4 pb-2">
+        <h3 class="font-semibold text-gray-700">&#128506; Route Map</h3>
+        <p class="text-xs text-gray-400">Marker colour: green = low stress &middot; orange = moderate &middot; red = high</p>
+      </div>
+      <div id="results-map"></div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <h3 class="font-semibold text-gray-700 mb-5">&#128336; Your Day Timeline</h3>
+      <div id="timeline-list" class="space-y-4">
+        <!-- injected by JS -->
+      </div>
+    </div>
+
+    <!-- Impact score -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="font-semibold text-gray-700">&#128200; Travel Impact Score</h3>
+        <div class="text-right">
+          <div id="total-score" class="text-3xl font-extrabold text-gray-800"></div>
+          <div class="text-xs text-gray-400">lower = less stressful day</div>
+        </div>
+      </div>
+      <div id="impact-bars" class="space-y-4">
+        <!-- injected by JS -->
+      </div>
+    </div>
+
+    <!-- Weather strip -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <h3 class="font-semibold text-gray-700 mb-4">&#127774; Weather Throughout the Day</h3>
+      <div id="weather-strip" class="overflow-x-auto">
+        <!-- injected by JS -->
+      </div>
+      <div class="flex gap-4 mt-3 text-xs text-gray-500">
+        <span><span class="heat-dot mr-1" style="background:#1ABC9C;"></span>Comfortable</span>
+        <span><span class="heat-dot mr-1" style="background:#E67E22;"></span>Warm</span>
+        <span><span class="heat-dot mr-1" style="background:#C0392B;"></span>Hot / avoid outdoors</span>
+      </div>
+    </div>
+
+    <!-- AI Explanation -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <h3 class="font-semibold text-gray-700 mb-4">&#129302; Why this order?</h3>
+      <div id="explanation-text" class="text-sm text-gray-600 leading-relaxed space-y-2 bg-gray-50 rounded-xl p-4 border-l-4"
+           style="border-left-color:#C0392B;">
+        <!-- injected by JS -->
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     SCRIPT
+════════════════════════════════════════════════════════ -->
+<script>
+
+// ── Constants ─────────────────────────────────────────────────────────────
+
+// Populated dynamically from /api/cities
+const CITY_DEFAULTS = {};
+
+// Visual styling per city slug
+const CITY_STYLES = {
+  madrid:        { grad: '#C0392B,#922B21', btn: '#C0392B', icon: '&#127937;' },
+  barcelona:     { grad: '#E67E22,#CA6F1E', btn: '#E67E22', icon: '&#127968;' },
+  seville:       { grad: '#2C3E50,#1A252F', btn: '#2C3E50', icon: '&#127981;' },
+  valencia:      { grad: '#27AE60,#1D8348', btn: '#27AE60', icon: '&#127807;' },
+  bilbao:        { grad: '#8E44AD,#6C3483', btn: '#8E44AD', icon: '&#127760;' },
+  granada:       { grad: '#D35400,#A04000', btn: '#D35400', icon: '&#127963;' },
+  malaga:        { grad: '#2980B9,#1A5276', btn: '#2980B9', icon: '&#127754;' },
+  toledo:        { grad: '#7F8C8D,#616A6B', btn: '#7F8C8D', icon: '&#127962;' },
+  salamanca:     { grad: '#B7950B,#9A7D0A', btn: '#B7950B', icon: '&#127979;' },
+  'san sebastian': { grad: '#1ABC9C,#148F77', btn: '#1ABC9C', icon: '&#127958;' },
+  cordoba:       { grad: '#A93226,#7B241C', btn: '#A93226', icon: '&#127965;' },
+  palma:         { grad: '#16A085,#0E6655', btn: '#16A085', icon: '&#127755;' },
+  zaragoza:      { grad: '#5D6D7E,#424949', btn: '#5D6D7E', icon: '&#127960;' },
+};
+
+const CATEGORY_BADGES = {
+  indoor:    { bg: '#EDE7F6', color: '#6A1B9A', label: 'Indoor'    },
+  outdoor:   { bg: '#E8F5E9', color: '#2E7D32', label: 'Outdoor'   },
+  market:    { bg: '#FFF9C4', color: '#F57F17', label: 'Market'    },
+  landmark:  { bg: '#FFF3E0', color: '#E65100', label: 'Landmark'  },
+  religious: { bg: '#E3F2FD', color: '#0D47A1', label: 'Religious' },
+  museum:    { bg: '#EDE7F6', color: '#4A148C', label: 'Museum'    },
+  park:      { bg: '#E8F5E9', color: '#1B5E20', label: 'Park'      },
+  beach:     { bg: '#E1F5FE', color: '#01579B', label: 'Beach'     },
+};
+
+// ── State ──────────────────────────────────────────────────────────────────
+
+const STATE = {
+  view: 'landing',
+  selectedCity: null,
+  attractions: [],
+  selectedIds: new Set(),
+  date: '',
+  startHour: 9,
+  preferenceMode: 'comfort',
+  travelMode: 'driving',
+  categoryFilter: 'all',
+  optimizeResult: null,
+  weatherData: [],
+  loading: false,
+};
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+
+function navigate(view) {
+  STATE.view = view;
+  document.querySelectorAll('[data-view]').forEach(el => {
+    el.classList.toggle('hidden', el.dataset.view !== view);
+  });
+  window.scrollTo(0, 0);
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+
+function showToast(msg, ms = 3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), ms);
+}
+
+// ── Loading ────────────────────────────────────────────────────────────────
+
+function setLoading(on) {
+  STATE.loading = on;
+  document.getElementById('loading-overlay').classList.toggle('hidden', !on);
+}
+
+// ── API wrapper ────────────────────────────────────────────────────────────
+
+async function apiFetch(path, options = {}) {
+  const res = await fetch(path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
+// ── Load Cities ────────────────────────────────────────────────────────────
+
+async function loadCities() {
+  try {
+    const data = await apiFetch('/api/cities');
+    const grid = document.getElementById('city-grid');
+    if (!data.cities || data.cities.length === 0) {
+      grid.innerHTML = '<p class="col-span-3 text-center text-gray-400">No cities available.</p>';
+      return;
+    }
+    // Populate CITY_DEFAULTS dynamically
+    data.cities.forEach(c => {
+      CITY_DEFAULTS[c.slug] = { lat: c.latitude, lon: c.longitude, label: c.name };
+    });
+    grid.innerHTML = data.cities.map(c => cityCard(c)).join('');
+  } catch (e) {
+    document.getElementById('city-grid').innerHTML =
+      '<p class="col-span-3 text-center text-gray-400">Could not load cities. Is the server running?</p>';
+  }
+}
+
+function cityCard(city) {
+  const style = CITY_STYLES[city.slug] || { grad: '#555,#333', btn: '#555', icon: '&#127759;' };
+  return `
+  <div class="city-card rounded-3xl overflow-hidden shadow-lg bg-white" onclick="selectCity('${city.slug}')">
+    <div class="h-36 flex items-center justify-center text-white text-6xl"
+         style="background:linear-gradient(135deg,${style.grad});">${style.icon}</div>
+    <div class="p-6">
+      <h3 class="text-2xl font-bold mb-1">${city.name}</h3>
+      <p class="text-gray-500 text-sm mb-4">${city.attraction_count} attractions available</p>
+      <button class="w-full py-2 rounded-xl text-white font-semibold text-sm"
+              style="background:${style.btn};">Start Planning &rarr;</button>
+    </div>
+  </div>`;
+}
+
+// ── City selection ─────────────────────────────────────────────────────────
+
+async function selectCity(city) {
+  STATE.selectedCity = city;
+  STATE.selectedIds.clear();
+  STATE.attractions = [];
+  STATE.categoryFilter = 'all';
+  const cityDef = CITY_DEFAULTS[city] || { label: city };
+  document.getElementById('planner-title').textContent = cityDef.label + ' — Choose Attractions';
+
+  // Set date minimum to today
+  const today = new Date().toISOString().split('T')[0];
+  const dateEl = document.getElementById('trip-date');
+  dateEl.min = today;
+  dateEl.value = '';
+  STATE.date = '';
+  document.getElementById('weather-preview-card').classList.add('hidden');
+
+  navigate('planner');
+  setLoading(true);
+
+  try {
+    const data = await apiFetch(`/api/attractions?city=${encodeURIComponent(city)}&limit=100`);
+    STATE.attractions = data.attractions;
+    document.getElementById('attr-count').textContent = `${data.count} available`;
+    renderCategoryFilter();
+    renderAttractionGrid();
+    updateSidebar();
+    initPlannerMap();
+  } catch (e) {
+    showToast('Failed to load attractions: ' + e.message, 5000);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── Preference mode ────────────────────────────────────────────────────────
+
+function setMode(mode) {
+  STATE.preferenceMode = mode;
+  document.querySelectorAll('.mode-pill').forEach(el => {
+    el.classList.toggle('active', el.dataset.mode === mode);
+  });
+}
+
+// ── Travel mode ────────────────────────────────────────────────────────────
+
+function setTravelMode(mode) {
+  STATE.travelMode = mode;
+  document.querySelectorAll('.travel-pill').forEach(el => {
+    el.classList.toggle('active', el.dataset.travel === mode);
+  });
+}
+
+// ── Category filter ────────────────────────────────────────────────────────
+
+function renderCategoryFilter() {
+  const cats = ['all', ...new Set(STATE.attractions.map(a => a.category).filter(Boolean))];
+  const container = document.getElementById('category-filter');
+  container.innerHTML = cats.map(cat => {
+    const label = cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1);
+    const active = STATE.categoryFilter === cat ? 'active' : '';
+    return `<button class="cat-pill ${active} px-3 py-1 rounded-full border border-gray-200 text-xs font-semibold text-gray-600 bg-white"
+                    onclick="setCategoryFilter('${cat}')">${label}</button>`;
+  }).join('');
+}
+
+function setCategoryFilter(cat) {
+  STATE.categoryFilter = cat;
+  renderCategoryFilter();
+  renderAttractionGrid();
+}
+
+// ── Attraction card rendering ──────────────────────────────────────────────
+
+function renderAttractionGrid() {
+  const grid = document.getElementById('attr-grid');
+  const filtered = STATE.categoryFilter === 'all'
+    ? STATE.attractions
+    : STATE.attractions.filter(a => a.category === STATE.categoryFilter);
+  grid.innerHTML = filtered.map(a => attractionCard(a)).join('');
+}
+
+function attractionCard(a) {
+  const sel    = STATE.selectedIds.has(a.id);
+  const badge  = CATEGORY_BADGES[a.category] || { bg: '#F3F4F6', color: '#374151', label: a.category };
+  const stars  = '★'.repeat(Math.round(a.priority_score / 2)) + '☆'.repeat(5 - Math.round(a.priority_score / 2));
+  const desc   = (a.description || '').slice(0, 90) + ((a.description || '').length > 90 ? '…' : '');
+  const border = sel ? 'border-2 border-red-500 bg-red-50' : 'border border-gray-100 bg-white';
+  const tick   = sel ? '<span style="color:#C0392B;font-size:18px;">&#10003;</span>' : '';
+
+  return `
+  <div class="attr-card rounded-2xl shadow-sm p-4 ${border}"
+       id="card-${a.id}" onclick="toggleAttr('${a.id}')">
+    <div class="flex items-start justify-between mb-2">
+      <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+            style="background:${badge.bg};color:${badge.color};">${badge.label}</span>
+      ${tick}
+    </div>
+    <h4 class="font-bold text-gray-800 text-sm leading-snug mb-1">${a.name}</h4>
+    <div class="flex items-center gap-3 text-xs text-gray-400 mb-2">
+      <span>&#9201; ${a.average_visit_duration} min</span>
+      ${a.fee && a.fee !== 'no' && a.fee !== 'free' ? `<span>&#128179; ${a.fee}</span>` : '<span class="text-green-600">Free</span>'}
+    </div>
+    <div class="text-yellow-400 text-xs mb-2">${stars}
+      <span class="text-gray-400 ml-1">${a.priority_score.toFixed(1)}</span>
+    </div>
+    <p class="text-xs text-gray-500 leading-relaxed">${desc}</p>
+    ${a.heat_sensitive ? '<p class="text-xs text-orange-500 mt-2">&#127774; Heat sensitive</p>' : ''}
+  </div>`;
+}
+
+function toggleAttr(id) {
+  if (STATE.selectedIds.has(id)) {
+    STATE.selectedIds.delete(id);
+  } else {
+    if (STATE.selectedIds.size >= 5) {
+      showToast('Maximum 5 attractions. Deselect one first.');
+      return;
+    }
+    STATE.selectedIds.add(id);
+  }
+  // Re-render just the toggled card
+  const a = STATE.attractions.find(x => x.id === id);
+  if (a) {
+    document.getElementById('card-' + id).outerHTML = attractionCard(a);
+    // Re-attach the new element's click (outerHTML replaces the element)
+    document.getElementById('card-' + id).onclick = () => toggleAttr(id);
+  }
+  updateSidebar();
+  renderPlannerMap();
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────
+
+function updateSidebar() {
+  const n   = STATE.selectedIds.size;
+  document.getElementById('sel-counter').textContent = `${n} / 5 selected`;
+
+  const list = document.getElementById('selected-list');
+  if (n === 0) {
+    list.innerHTML = '<p class="text-gray-400 italic text-sm">None yet</p>';
+  } else {
+    list.innerHTML = [...STATE.selectedIds].map((id, i) => {
+      const a = STATE.attractions.find(x => x.id === id);
+      return `<div class="flex items-center gap-2 text-sm">
+        <span class="stop-badge text-white text-xs" style="background:#C0392B;min-width:22px;height:22px;">${i+1}</span>
+        <span class="truncate">${a ? a.name : id}</span>
+      </div>`;
+    }).join('');
+  }
+
+  const dateOk = !!document.getElementById('trip-date').value;
+  const canOptimize = n >= 3 && dateOk;
+
+  // Desktop button
+  const btn = document.getElementById('optimize-btn');
+  btn.disabled = !canOptimize;
+
+  // Mobile floating bar
+  const mobileBtn = document.getElementById('mobile-optimize-btn');
+  mobileBtn.disabled = !canOptimize;
+  document.getElementById('mobile-sel-count').textContent = n;
+}
+
+document.getElementById('trip-date').addEventListener('change', async e => {
+  STATE.date = e.target.value;
+  updateSidebar();
+  if (STATE.date && STATE.selectedCity) {
+    await fetchWeatherPreview();
+  }
+});
+document.getElementById('start-hour').addEventListener('change', e => {
+  STATE.startHour = parseInt(e.target.value);
+});
+
+// ── Planner map ────────────────────────────────────────────────────────────
+
+let plannerMap    = null;
+let plannerMarkers = [];
+
+function initPlannerMap() {
+  if (plannerMap) { plannerMap.remove(); plannerMap = null; }
+  const city = CITY_DEFAULTS[STATE.selectedCity] || { lat: 40.4168, lon: -3.7038 };
+  plannerMap = L.map('planner-map', { zoomControl: false, attributionControl: false })
+    .setView([city.lat, city.lon], 13);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    { maxZoom: 19 }).addTo(plannerMap);
+}
+
+function renderPlannerMap() {
+  if (!plannerMap) return;
+  plannerMarkers.forEach(m => m.remove());
+  plannerMarkers = [];
+  STATE.selectedIds.forEach(id => {
+    const a = STATE.attractions.find(x => x.id === id);
+    if (!a) return;
+    const m = L.circleMarker([a.latitude, a.longitude], {
+      radius: 9, fillColor: '#C0392B', color: '#fff',
+      weight: 2, fillOpacity: 0.9,
+    }).bindTooltip(a.name, { permanent: false }).addTo(plannerMap);
+    plannerMarkers.push(m);
+  });
+  if (plannerMarkers.length) {
+    plannerMap.fitBounds(L.featureGroup(plannerMarkers).getBounds().pad(0.35));
+  } else {
+    const c = CITY_DEFAULTS[STATE.selectedCity];
+    plannerMap.setView([c.lat, c.lon], 13);
+  }
+}
+
+// ── Weather preview (sidebar, before optimise) ─────────────────────────────
+
+async function fetchWeatherPreview() {
+  const city = STATE.selectedCity;
+  const def = CITY_DEFAULTS[city];
+  if (!def) return;
+  try {
+    const params = new URLSearchParams({
+      city, date: STATE.date,
+      lat: def.lat, lon: def.lon,
+    });
+    const data = await apiFetch('/api/weather-estimate?' + params);
+    const hours = (data.hours || []).filter(h => h.hour >= 8 && h.hour <= 20);
+    const strip = document.getElementById('weather-preview-strip');
+    strip.innerHTML = hours.map(h => {
+      const hi = h.heat_discomfort_index;
+      const col = hi < 0.3 ? '#1ABC9C' : hi < 0.6 ? '#E67E22' : '#C0392B';
+      return `<div class="flex flex-col items-center gap-0.5 px-1.5 min-w-[36px] text-center">
+        <span class="text-xs text-gray-400">${h.hour}</span>
+        <span class="text-xs font-bold text-gray-700">${Math.round(h.temperature_c)}&deg;</span>
+        <span style="width:8px;height:8px;border-radius:50%;background:${col};display:inline-block;"></span>
+      </div>`;
+    }).join('');
+    // Heat warning if any afternoon hour > 0.6
+    const hotAfternoon = hours.some(h => h.hour >= 12 && h.heat_discomfort_index > 0.6);
+    document.getElementById('heat-warning').classList.toggle('hidden', !hotAfternoon);
+    document.getElementById('weather-preview-card').classList.remove('hidden');
+  } catch (_) {}
+}
+
+// ── Optimise ───────────────────────────────────────────────────────────────
+
+async function runOptimize() {
+  if (STATE.selectedIds.size < 3 || !STATE.date) return;
+
+  const city = STATE.selectedCity;
+  const def  = CITY_DEFAULTS[city];
+  const payload = {
+    start_latitude:  def.lat,
+    start_longitude: def.lon,
+    date:            STATE.date,
+    attraction_ids:  [...STATE.selectedIds],
+    preference_mode: STATE.preferenceMode,
+    start_hour:      STATE.startHour,
+    travel_mode:     STATE.travelMode,
+  };
+
+  setLoading(true);
+  try {
+    const month = new Date(STATE.date).getMonth() + 1;
+    const [result, weather] = await Promise.all([
+      apiFetch('/api/optimize', { method: 'POST', body: JSON.stringify(payload) }),
+      apiFetch(`/api/weather-estimate?city=${city}&date=${STATE.date}&lat=${def.lat}&lon=${def.lon}`),
+    ]);
+    STATE.optimizeResult = result;
+    STATE.weatherData    = weather.hours || [];
+    navigate('results');
+    setTimeout(() => renderResults(), 60);
+  } catch (e) {
+    showToast('Optimisation failed: ' + e.message, 6000);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── Results rendering ──────────────────────────────────────────────────────
+
+function renderResults() {
+  const r   = STATE.optimizeResult;
+  const fmt = (m) => m.toFixed(0) + ' min';
+
+  // Top bar
+  const cityDef   = CITY_DEFAULTS[STATE.selectedCity] || { label: STATE.selectedCity };
+  const cityLabel = cityDef.label;
+  const dateStr   = new Date(STATE.date + 'T12:00:00').toLocaleDateString('en-GB',
+    { weekday: 'short', day: 'numeric', month: 'long' });
+  const modeIcon  = (r.travel_mode || STATE.travelMode) === 'walking' ? '&#128694;' : '&#128663;';
+  document.getElementById('results-title').textContent = `${cityLabel} — ${dateStr}`;
+  document.getElementById('results-stats').textContent =
+    `${modeIcon} ${r.permutations_evaluated} permutations · ${r.computation_time_ms.toFixed(0)}ms` +
+    (r.data_sources && r.data_sources.routing !== 'static_matrix' ? ' · live routing' : '');
+
+  renderResultsMap(r.timeline);
+  renderTimeline(r.timeline);
+  renderImpactBars(r);
+  renderWeather(r.itinerary_start, r.itinerary_end);
+  renderExplanation(r.explanation);
+}
+
+// ── Results map ────────────────────────────────────────────────────────────
+
+let resultsMap = null;
+
+function renderResultsMap(timeline) {
+  if (resultsMap) { resultsMap.remove(); resultsMap = null; }
+  const def = CITY_DEFAULTS[STATE.selectedCity] || { lat: 40.4168, lon: -3.7038 };
+
+  resultsMap = L.map('results-map').setView([def.lat, def.lon], 14);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    { maxZoom: 19, attribution: '&copy; CartoDB' }).addTo(resultsMap);
+
+  const coords = [[def.lat, def.lon]];
+
+  // Start marker
+  L.marker([def.lat, def.lon], {
+    icon: L.divIcon({
+      className: '',
+      html: `<div style="background:#2C3E50;color:white;border-radius:50%;
+                         width:28px;height:28px;display:flex;align-items:center;
+                         justify-content:center;font-weight:700;font-size:11px;
+                         border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);">S</div>`,
+      iconSize: [28,28], iconAnchor: [14,14],
+    })
+  }).bindPopup('<b>Start Location</b>').addTo(resultsMap);
+
+  timeline.forEach((leg, i) => {
+    const a = STATE.attractions.find(x => x.id === leg.attraction_id);
+    if (!a) return;
+    const score = leg.impact_score.total_score;
+    const col   = score < 0.3 ? '#1ABC9C' : score < 0.5 ? '#E67E22' : '#C0392B';
+    const latlng = [a.latitude, a.longitude];
+    coords.push(latlng);
+
+    L.marker(latlng, {
+      icon: L.divIcon({
+        className: '',
+        html: `<div style="background:${col};color:white;border-radius:50%;
+                           width:32px;height:32px;display:flex;align-items:center;
+                           justify-content:center;font-weight:700;font-size:13px;
+                           border:2px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.4);">${i+1}</div>`,
+        iconSize: [32,32], iconAnchor: [16,16],
+      })
+    }).bindPopup(`<b>${leg.attraction_name}</b><br>
+      Arrive: ${leg.arrival_time} &bull; Leave: ${leg.visit_end}<br>
+      Visit: ${leg.visit_duration_min} min &bull; Stress: ${score.toFixed(3)}`
+    ).addTo(resultsMap);
+  });
+
+  L.polyline(coords, { color:'#C0392B', weight:3, dashArray:'8 6', opacity:0.75 }).addTo(resultsMap);
+  resultsMap.fitBounds(L.latLngBounds(coords).pad(0.18));
+}
+
+// ── Timeline ───────────────────────────────────────────────────────────────
+
+function renderTimeline(timeline) {
+  const el = document.getElementById('timeline-list');
+  const def = CITY_DEFAULTS[STATE.selectedCity] || {};
+
+  el.innerHTML = timeline.map((leg, i) => {
+    const score = leg.impact_score.total_score;
+    const col   = score < 0.3 ? '#1ABC9C' : score < 0.5 ? '#E67E22' : '#C0392B';
+    const pct   = Math.min(score / 1.0 * 100, 100).toFixed(0);
+
+    return `
+    <div class="flex gap-4 pb-4 border-b border-gray-100 last:border-0">
+      <div class="stop-badge text-white" style="background:${col};">${i+1}</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs text-gray-400 mb-1">
+          Travel from <span class="font-medium text-gray-600">${leg.travel_from}</span>
+          &bull; ${leg.departure_time} &rarr; ${leg.arrival_time}
+          &bull; ${leg.travel_duration_min} min &bull; ${leg.travel_distance_km} km
+        </div>
+        <div class="font-semibold text-gray-800 text-sm mb-1">${leg.attraction_name}</div>
+        <div class="text-xs text-gray-500 mb-2">
+          &#9201; ${leg.visit_start} &ndash; ${leg.visit_end}
+          &bull; ${leg.visit_duration_min} min visit
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="flex-1 bg-gray-100 rounded-full h-1.5">
+            <div class="impact-bar h-1.5 rounded-full" style="width:${pct}%;background:${col};"></div>
+          </div>
+          <span class="text-xs font-semibold" style="color:${col};">stress ${score.toFixed(3)}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Impact bars ────────────────────────────────────────────────────────────
+
+function renderImpactBars(r) {
+  const el    = document.getElementById('total-score');
+  const bars  = document.getElementById('impact-bars');
+  const total = r.total_impact_score;
+  const comp  = r.impact_breakdown.components;
+
+  el.textContent = total.toFixed(3);
+
+  const items = [
+    { key: 'traffic',    label: 'Traffic',    color: '#C0392B', icon: '&#128663;' },
+    { key: 'crowd',      label: 'Crowd',      color: '#E67E22', icon: '&#128101;' },
+    { key: 'volatility', label: 'Volatility', color: '#F39C12', icon: '&#9889;'  },
+    { key: 'heat',       label: 'Heat',       color: '#3498DB', icon: '&#127774;' },
+  ];
+
+  bars.innerHTML = items.map(item => {
+    const val = comp[item.key] || 0;
+    const pct = total > 0 ? (val / total * 100).toFixed(0) : 0;
+    return `
+    <div>
+      <div class="flex justify-between text-sm mb-1">
+        <span class="font-medium text-gray-700">${item.icon} ${item.label}</span>
+        <span class="text-gray-500">${val.toFixed(3)} &bull; ${pct}%</span>
+      </div>
+      <div class="w-full bg-gray-100 rounded-full h-3">
+        <div class="impact-bar h-3 rounded-full" style="width:${pct}%;background:${item.color};"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Weather strip ──────────────────────────────────────────────────────────
+
+function renderWeather(startStr, endStr) {
+  const el = document.getElementById('weather-strip');
+  if (!STATE.weatherData.length) { el.innerHTML = '<p class="text-sm text-gray-400">No weather data.</p>'; return; }
+
+  const startH = parseInt(startStr.split(':')[0]);
+  const endH   = parseInt(endStr.split(':')[0]);
+
+  const cols = STATE.weatherData.filter(w => w.hour >= 7 && w.hour <= 21).map(w => {
+    const hi   = w.heat_discomfort_index;
+    const dot  = hi < 0.3 ? '#1ABC9C' : hi < 0.6 ? '#E67E22' : '#C0392B';
+    const inRange = w.hour >= startH && w.hour <= endH;
+    const bg   = inRange ? 'background:#FEF3C7;' : '';
+    return `
+    <div class="flex flex-col items-center gap-1 px-2 py-2 rounded-lg min-w-[48px] text-center" style="${bg}">
+      <span class="text-xs text-gray-400">${w.hour}:00</span>
+      <span class="text-sm font-semibold text-gray-700">${Math.round(w.temperature_c)}&deg;</span>
+      <span class="heat-dot" style="background:${dot};"></span>
+    </div>`;
+  });
+
+  el.innerHTML = `<div class="flex gap-1">${cols.join('')}</div>`;
+}
+
+// ── Explanation ────────────────────────────────────────────────────────────
+
+function renderExplanation(text) {
+  const el = document.getElementById('explanation-text');
+  el.innerHTML = text.split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .map(line => `<p>${line}</p>`)
+    .join('');
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  setMode('comfort');
+  setTravelMode('driving');
+  navigate('landing');
+  loadCities();  // Fetch all cities from API and render landing cards
+});
+
+</script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+{
+  "ordered_route": [
+    {
+      "order": 1,
+      "attraction_id": "7d906330-ba0f-4d26-b8e8-bfcf6262996d",
+      "name": "Casa Batll\u00f3"
+    },
+    {
+      "order": 2,
+      "attraction_id": "6da04345-900d-4572-b622-9b968a1ce2e8",
+      "name": "Gothic Quarter"
+    },
+    {
+      "order": 3,
+      "attraction_id": "f4fa0c81-e74b-4751-bdb8-6f8cc7f09a15",
+      "name": "La Boqueria Market"
+    },
+    {
+      "order": 4,
+      "attraction_id": "b23ed660-9e8a-4718-ae33-5288b75b59ac",
+      "name": "Park G\u00fcell"
+    },
+    {
+      "order": 5,
+      "attraction_id": "546f4a70-72e7-41cf-85cc-bb219bbb4648",
+      "name": "Sagrada Fam\u00edlia"
+    }
+  ],
+  "timeline": [
+    {
+      "attraction_id": "7d906330-ba0f-4d26-b8e8-bfcf6262996d",
+      "attraction_name": "Casa Batll\u00f3",
+      "travel_from": "Start Location",
+      "departure_time": "09:00",
+      "arrival_time": "09:03",
+      "travel_duration_min": 3.4,
+      "travel_distance_km": 0.94,
+      "visit_start": "09:03",
+      "visit_end": "10:18",
+      "visit_duration_min": 75,
+      "impact_score": {
+        "total_score": 0.6125,
+        "traffic_component": 0.3645,
+        "heat_component": 0.003,
+        "crowd_component": 0.1112,
+        "volatility_component": 0.1338,
+        "raw_traffic": 0.729,
+        "raw_heat": 0.02,
+        "raw_crowd": 0.556,
+        "raw_volatility": 0.892
+      }
+    },
+    {
+      "attraction_id": "6da04345-900d-4572-b622-9b968a1ce2e8",
+      "attraction_name": "Gothic Quarter",
+      "travel_from": "Casa Batll\u00f3",
+      "departure_time": "10:18",
+      "arrival_time": "10:24",
+      "travel_duration_min": 6.0,
+      "travel_distance_km": 1.85,
+      "visit_start": "10:24",
+      "visit_end": "11:54",
+      "visit_duration_min": 90,
+      "impact_score": {
+        "total_score": 0.5413,
+        "traffic_component": 0.3315,
+        "heat_component": 0.015,
+        "crowd_component": 0.11,
+        "volatility_component": 0.0847,
+        "raw_traffic": 0.663,
+        "raw_heat": 0.1,
+        "raw_crowd": 0.55,
+        "raw_volatility": 0.565
+      }
+    },
+    {
+      "attraction_id": "f4fa0c81-e74b-4751-bdb8-6f8cc7f09a15",
+      "attraction_name": "La Boqueria Market",
+      "travel_from": "Gothic Quarter",
+      "departure_time": "11:54",
+      "arrival_time": "11:55",
+      "travel_duration_min": 1.5,
+      "travel_distance_km": 0.56,
+      "visit_start": "11:55",
+      "visit_end": "12:55",
+      "visit_duration_min": 60,
+      "impact_score": {
+        "total_score": 0.5036,
+        "traffic_component": 0.255,
+        "heat_component": 0.0,
+        "crowd_component": 0.173,
+        "volatility_component": 0.0756,
+        "raw_traffic": 0.51,
+        "raw_heat": 0.0,
+        "raw_crowd": 0.865,
+        "raw_volatility": 0.504
+      }
+    },
+    {
+      "attraction_id": "b23ed660-9e8a-4718-ae33-5288b75b59ac",
+      "attraction_name": "Park G\u00fcell",
+      "travel_from": "La Boqueria Market",
+      "departure_time": "12:55",
+      "arrival_time": "13:09",
+      "travel_duration_min": 13.7,
+      "travel_distance_km": 5.59,
+      "visit_start": "13:09",
+      "visit_end": "14:39",
+      "visit_duration_min": 90,
+      "impact_score": {
+        "total_score": 0.3599,
+        "traffic_component": 0.2115,
+        "heat_component": 0.0,
+        "crowd_component": 0.078,
+        "volatility_component": 0.0703,
+        "raw_traffic": 0.423,
+        "raw_heat": 0.0,
+        "raw_crowd": 0.39,
+        "raw_volatility": 0.469
+      }
+    },
+    {
+      "attraction_id": "546f4a70-72e7-41cf-85cc-bb219bbb4648",
+      "attraction_name": "Sagrada Fam\u00edlia",
+      "travel_from": "Park G\u00fcell",
+      "departure_time": "14:39",
+      "arrival_time": "14:49",
+      "travel_duration_min": 9.5,
+      "travel_distance_km": 3.05,
+      "visit_start": "14:49",
+      "visit_end": "16:19",
+      "visit_duration_min": 90,
+      "impact_score": {
+        "total_score": 0.5115,
+        "traffic_component": 0.3135,
+        "heat_component": 0.0,
+        "crowd_component": 0.1154,
+        "volatility_component": 0.0827,
+        "raw_traffic": 0.627,
+        "raw_heat": 0.0,
+        "raw_crowd": 0.577,
+        "raw_volatility": 0.551
+      }
+    }
+  ],
+  "total_travel_time_min": 34.1,
+  "total_visit_time_min": 405,
+  "total_duration_min": 439.1,
+  "total_impact_score": 2.5288,
+  "impact_breakdown": {
+    "total_score": 2.5288,
+    "avg_score": 0.5058,
+    "max_score": 0.6125,
+    "min_score": 0.3599,
+    "legs": 5,
+    "components": {
+      "traffic": 1.476,
+      "heat": 0.018,
+      "crowd": 0.5876,
+      "volatility": 0.4471
+    }
+  },
+  "itinerary_start": "09:00",
+  "itinerary_end": "16:19",
+  "permutations_evaluated": 120,
+  "computation_time_ms": 33.2,
+  "explanation": "Optimized 5-stop itinerary for Barcelona on May 20, 2025 (balanced mode).\n\nRoute: Casa Batll\u00f3 \u2192 Gothic Quarter \u2192 La Boqueria Market \u2192 Park G\u00fcell \u2192 Sagrada Fam\u00edlia\n\nEvaluated 120 possible orderings.\nThis route scores 2.529 (best) vs 3.006 (worst) \u2014 15.9% stress reduction.\n\nTotal travel: 34 min | Total visiting: 405 min\n\nKey optimizations:\n  \u2022 Casa Batll\u00f3 scheduled outside peak hours ([10, 11, 12])\n  \u2022 4/5 travel segments avoid rush hour\n\nImpact breakdown: Traffic=1.476, Heat=0.018, Crowds=0.588, Volatility=0.447"
+}
