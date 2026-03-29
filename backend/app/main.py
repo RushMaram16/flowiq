@@ -71,3 +71,19 @@ def weather_best_time(req: BestTimeRequest):
         raise HTTPException(status_code=404, detail="Forecast unavailable")
 
     return result
+# 🚀 ENGINE 2 API
+from backend.app.services.transport_service import get_transport_recommendations
+
+@app.get("/engine2/recommend")
+def engine2_recommend(start: str, end: str):
+    result = get_transport_recommendations(start, end)
+
+    return {
+        "engine": "Engine 2",
+        "type": "Transport Recommendation",
+        "input": {
+            "start": start,
+            "end": end
+        },
+        "output": result
+    }
