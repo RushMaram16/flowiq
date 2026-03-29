@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+backend/venv/
+
+# Environment files
+.env
+backend/.env
+
+# macOS
+.DS_Store
+backend/engine2/data/gtfs/barcelona/shapes.txt
+backend/engine2/data/gtfs/barcelona/stop_times.txt
+backend/**/__pycache__/
+backend/**/*.pyc

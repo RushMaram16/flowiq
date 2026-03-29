@@ -1,0 +1,8 @@
+city,origin,destination,mode,distance_km,duration_min,cost_estimate,hour,day_of_week,weather_source
+Barcelona,"Sagrada Familia, Barcelona","Park Guell, Barcelona",driving-car,3.47,10.63,12.0,22,Tuesday,manual_test
+Barcelona,"Sagrada Familia, Barcelona","Park Guell, Barcelona",driving-car,3.47,10.63,12.0,22,Tuesday,multi_mode_test
+Barcelona,"Sagrada Familia, Barcelona","Park Guell, Barcelona",foot-walking,2.59,31.1,0.0,22,Tuesday,multi_mode_test
+Barcelona,"Sagrada Familia, Barcelona","Park Guell, Barcelona",cycling-regular,3.06,13.94,0.0,22,Tuesday,multi_mode_test
+Barcelona,"Sagrada Familia, Barcelona","Park Guell, Barcelona",driving-car,3.47,10.63,12.0,22,Tuesday,multi_mode_test
+Barcelona,"Sagrada Familia, Barcelona","Park Guell, Barcelona",foot-walking,2.59,31.1,0.0,22,Tuesday,multi_mode_test
+Barcelona,"Sagrada Familia, Barcelona","Park Guell, Barcelona",cycling-regular,3.06,13.94,0.0,22,Tuesday,multi_mode_test
